@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CylinderGuard - Smart Safety Valve</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for compiling JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js for the 3D Model -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        /* Custom Animations */
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+            animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        
+        /* Fallback loading state */
+        #root:empty::before {
+            content: "Loading Application...";
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Safe check to ensure React loaded
+        if (typeof React === 'undefined') {
+            document.getElementById('root').innerHTML = '<div style="padding: 20px; color: red;">Error: React failed to load. Please check your internet connection.</div>';
+        }
+
+        const { useState, useEffect, useRef } = React;
+
+        // --- Icon Components (Refactored to be 100% Babel Safe) ---
+        const IconBase = ({ children, className }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+            >
+                {children}
+            </svg>
+        );
+
+        const Shield = (props) => <IconBase {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></IconBase>;
+        const Wifi = (props) => <IconBase {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" /></IconBase>;
+        const Zap = (props) => <IconBase {...props}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></IconBase>;
+        const Bell = (props) => <IconBase {...props}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></IconBase>;
+        const AlertTriangle = (props) => <IconBase {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></IconBase>;
+        const CheckCircle2 = (props) => <IconBase {...props}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></IconBase>;
+        const Smartphone = (props) => <IconBase {...props}><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></IconBase>;
+        const Activity = (props) => <IconBase {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></IconBase>;
+        const Menu = (props) => <IconBase {...props}><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></IconBase>;
+        const X = (props) => <IconBase {...props}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></IconBase>;
+        const Cpu = (props) => <IconBase {...props}><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M15 2v2" /><path d="M15 20v2" /><path d="M2 15h2" /><path d="M2 9h2" /><path d="M20 15h2" /><path d="M20 9h2" /><path d="M9 2v2" /><path d="M9 20v2" /></IconBase>;
+        const Thermometer = (props) => <IconBase {...props}><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" /></IconBase>;
+        const Lock = (props) => <IconBase {...props}><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></IconBase>;
+        const MousePointer2 = (props) => <IconBase {...props}><path d="m12 20-5-5-2 2V3l15 13-6 1Z" /></IconBase>;
+        const Tag = (props) => <IconBase {...props}><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><path d="M7 7h.01" /></IconBase>;
+
+        // --- 3D Model Component (Three.js) ---
+        const Valve3D = ({ showLabels }) => {
+            const mountRef = useRef(null);
+            const labelsRef = useRef(null);
+
+            useEffect(() => {
+                if (!mountRef.current || typeof THREE === 'undefined') return;
+
+                // Scene Setup
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf8fafc);
+
+                // Camera
+                const camera = new THREE.PerspectiveCamera(35, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+                camera.position.set(4, 2, 5.5); 
+                camera.lookAt(0, 0.2, 0);
+
+                // Renderer
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for performance
+                mountRef.current.appendChild(renderer.domElement);
+
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                scene.add(ambientLight);
+
+                const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+                mainLight.position.set(5, 5, 5);
+                mainLight.castShadow = true;
+                mainLight.shadow.mapSize.width = 1024;
+                mainLight.shadow.mapSize.height = 1024;
+                scene.add(mainLight);
+                
+                const rimLight = new THREE.SpotLight(0x4488ff, 3);
+                rimLight.position.set(-5, 0, -2);
+                rimLight.lookAt(0,0,0);
+                scene.add(rimLight);
+                
+                // --- Constructing the Valve Model ---
+                const valveGroup = new THREE.Group();
+
+                // Materials
+                const brassMat = new THREE.MeshStandardMaterial({ color: 0xfcb034, roughness: 0.2, metalness: 0.9 });
+                const darkBrassMat = new THREE.MeshStandardMaterial({ color: 0xb87e14, roughness: 0.3, metalness: 0.8 });
+                const darkGreyMat = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.4, metalness: 0.2 });
+                const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7, metalness: 0.1 });
+                const blueCapMat = new THREE.MeshStandardMaterial({ color: 0x0066cc, roughness: 0.2, metalness: 0.3 });
+                const silverMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.9 });
+                const screwMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 1.0 });
+
+                // Helper functions
+                const createHexNut = (size, height, material) => {
+                    const geo = new THREE.CylinderGeometry(size, size, height, 6);
+                    const mesh = new THREE.Mesh(geo, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    return mesh;
+                };
+
+                const createScrew = (x, y, z) => {
+                    const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12);
+                    const mesh = new THREE.Mesh(geo, screwMat);
+                    mesh.rotation.x = Math.PI / 2;
+                    mesh.position.set(x, y, z);
+                    return mesh;
+                };
+
+                // 1. Central Body
+                const bottomThread = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 24), darkBrassMat);
+                bottomThread.position.y = -1.2;
+                valveGroup.add(bottomThread);
+
+                const bottomHex = createHexNut(0.7, 0.4, brassMat);
+                bottomHex.position.y = -0.9;
+                valveGroup.add(bottomHex);
+
+                for(let i=0; i<5; i++) {
+                    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.05, 24), darkBrassMat);
+                    ring.position.y = -0.6 + (i * 0.08);
+                    valveGroup.add(ring);
+                }
+                const innerNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.5, 24), brassMat);
+                innerNeck.position.y = -0.4;
+                valveGroup.add(innerNeck);
+
+                const mainBlock = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.65, 1.2, 8), darkGreyMat);
+                mainBlock.rotation.y = Math.PI / 8;
+                mainBlock.position.y = 0.5;
+                mainBlock.castShadow = true;
+                valveGroup.add(mainBlock);
+
+                const topNeck = createHexNut(0.5, 0.3, brassMat);
+                topNeck.position.y = 1.2;
+                valveGroup.add(topNeck);
+
+                // 2. Blue Cap
+                const capGroup = new THREE.Group();
+                const capBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.2, 32), blueCapMat);
+                const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.8, 0.15, 32), blueCapMat);
+                capTop.position.y = 0.17;
+                for(let i=0; i<12; i++) {
+                    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.05), blueCapMat);
+                    const angle = (i / 12) * Math.PI * 2;
+                    ridge.position.set(Math.cos(angle)*0.75, 0.05, Math.sin(angle)*0.75);
+                    ridge.rotation.y = -angle;
+                    capGroup.add(ridge);
+                }
+                capGroup.add(capBase);
+                capGroup.add(capTop);
+                capGroup.position.y = 1.45;
+                valveGroup.add(capGroup);
+
+                // 3. Pipes
+                const leftPipeGroup = new THREE.Group();
+                const lPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.0, 16), brassMat);
+                lPipe.rotation.z = Math.PI / 2;
+                lPipe.position.set(-0.6, 0.5, 0);
+                leftPipeGroup.add(lPipe);
+                const lNut = createHexNut(0.4, 0.3, darkBrassMat);
+                lNut.rotation.z = Math.PI / 2;
+                lNut.position.set(-0.3, 0.5, 0);
+                leftPipeGroup.add(lNut);
+                valveGroup.add(leftPipeGroup);
+
+                const rightPipeGroup = new THREE.Group();
+                const rPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.2, 16), brassMat);
+                rPipe.rotation.z = Math.PI / 2;
+                rPipe.position.set(0.7, 0.5, 0);
+                rightPipeGroup.add(rPipe);
+                const rNut = createHexNut(0.4, 0.3, darkBrassMat);
+                rNut.rotation.z = Math.PI / 2;
+                rNut.position.set(0.4, 0.5, 0);
+                rightPipeGroup.add(rNut);
+                const rNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16), brassMat);
+                rNozzle.rotation.z = Math.PI / 2;
+                rNozzle.position.set(1.2, 0.5, 0);
+                const rThread = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.3, 16), darkBrassMat);
+                rThread.rotation.z = Math.PI / 2;
+                rThread.position.set(1.2, 0.5, 0);
+                rightPipeGroup.add(rNozzle);
+                rightPipeGroup.add(rThread);
+                valveGroup.add(rightPipeGroup);
+
+                // 4. Control Unit & Sensor
+                const controlGroup = new THREE.Group();
+                controlGroup.position.set(-1.6, 0.5, 0);
+                
+                const valveBlock = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.5), silverMat);
+                valveBlock.position.set(0.3, 0, 0);
+                controlGroup.add(valveBlock);
+
+                const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.5), darkGreyMat);
+                box.castShadow = true;
+                controlGroup.add(box);
+                controlGroup.add(createScrew(-0.35, 0.35, 0.25));
+                controlGroup.add(createScrew(-0.35, -0.35, 0.25));
+                controlGroup.add(createScrew(0.35, 0.35, 0.25));
+                controlGroup.add(createScrew(0.35, -0.35, 0.25));
+
+                const sensorBase = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16), blackMat);
+                sensorBase.position.set(0, 0.55, 0);
+                controlGroup.add(sensorBase);
+
+                const sensorHead = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.25, 16), new THREE.MeshStandardMaterial({color: 0x222222, roughness: 0.9}));
+                sensorHead.position.set(0, 0.75, 0);
+                controlGroup.add(sensorHead);
+
+                for(let i=0; i<4; i++) {
+                    const line = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.02, 16), silverMat);
+                    line.position.set(0, 0.7 + (i*0.05), 0);
+                    controlGroup.add(line);
+                }
+
+                const antStem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), blackMat);
+                antStem.position.set(-0.25, 0.6, -0.2);
+                controlGroup.add(antStem);
+                const antTip = new THREE.Mesh(new THREE.SphereGeometry(0.06), blackMat);
+                antTip.position.set(-0.25, 0.9, -0.2);
+                controlGroup.add(antTip);
+
+                const led = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+                led.position.set(0, 0, 0.28);
+                controlGroup.add(led);
+
+                valveGroup.add(controlGroup);
+
+                // 5. Wires
+                const wireMat = new THREE.MeshStandardMaterial({color: 0x111111});
+                const createWire = (start, mid, end) => {
+                    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+                    const geo = new THREE.TubeGeometry(curve, 10, 0.03, 8, false);
+                    return new THREE.Mesh(geo, wireMat);
+                };
+                valveGroup.add(createWire(new THREE.Vector3(-1.6, 0.0, 0), new THREE.Vector3(-1.0, -0.4, 0.2), new THREE.Vector3(-0.5, -0.2, 0.2)));
+                valveGroup.add(createWire(new THREE.Vector3(-1.5, 0.0, 0), new THREE.Vector3(-1.0, 0.3, 0.3), new THREE.Vector3(-0.5, 0.2, 0.2)));
+
+                scene.add(valveGroup);
+
+                // --- Interaction Logic ---
+                let isDragging = false;
+                let previousMousePosition = { x: 0, y: 0 };
+                let autoRotate = true;
+
+                const onMouseDown = (e) => {
+                    isDragging = true;
+                    autoRotate = false;
+                    previousMousePosition = { x: e.clientX || e.touches?.[0].clientX, y: e.clientY || e.touches?.[0].clientY };
+                };
+
+                const onMouseMove = (e) => {
+                    if (!isDragging) return;
+                    const currentX = e.clientX || e.touches?.[0].clientX;
+                    const deltaMove = { x: currentX - previousMousePosition.x };
+
+                    if(deltaMove.x !== 0) {
+                        valveGroup.rotation.y += deltaMove.x * 0.01;
+                    }
+                    previousMousePosition = { x: currentX, y: 0 };
+                };
+
+                const onMouseUp = () => { isDragging = false; };
+
+                const domElement = mountRef.current;
+                domElement.addEventListener('mousedown', onMouseDown);
+                domElement.addEventListener('touchstart', onMouseDown, {passive: true});
+                domElement.addEventListener('mousemove', onMouseMove, {passive: true});
+                domElement.addEventListener('touchmove', onMouseMove, {passive: true});
+                domElement.addEventListener('mouseup', onMouseUp);
+                domElement.addEventListener('touchend', onMouseUp);
+                domElement.addEventListener('mouseleave', onMouseUp);
+
+                // --- Label System ---
+                const labelsData = [
+                    { text: "Leak Sensor", pos: new THREE.Vector3(-1.6, 1.25, 0) },
+                    { text: "Control Unit", pos: new THREE.Vector3(-1.6, -0.1, 0.3) },
+                    { text: "Wi-Fi Module", pos: new THREE.Vector3(-1.8, 1.0, -0.2) },
+                    { text: "Solenoid Valve", pos: new THREE.Vector3(-1.2, 0.8, 0) },
+                    { text: "Safety Cap", pos: new THREE.Vector3(0, 1.6, 0) },
+                    { text: "Output Nozzle", pos: new THREE.Vector3(1.3, 0.5, 0) },
+                ];
+
+                const labelElements = labelsData.map(data => {
+                    const div = document.createElement('div');
+                    div.textContent = data.text;
+                    div.className = "absolute bg-white/90 backdrop-blur border border-blue-200 text-blue-900 text-xs font-bold px-2 py-1 rounded shadow-md pointer-events-none transition-opacity duration-300";
+                    div.style.opacity = '0';
+                    labelsRef.current.appendChild(div);
+                    return { div, pos: data.pos };
+                });
+
+                let animationId;
+                const tempVec = new THREE.Vector3();
+
+                const animate = () => {
+                    animationId = requestAnimationFrame(animate);
+                    
+                    if(autoRotate) {
+                        valveGroup.rotation.y += 0.002;
+                    }
+                    
+                    const time = Date.now() * 0.005;
+                    led.material.opacity = 0.6 + Math.sin(time * 2) * 0.4;
+                    
+                    renderer.render(scene, camera);
+
+                    if (mountRef.current && labelsRef.current) {
+                        const widthHalf = mountRef.current.clientWidth / 2;
+                        const heightHalf = mountRef.current.clientHeight / 2;
+
+                        labelElements.forEach((item) => {
+                            tempVec.copy(item.pos);
+                            tempVec.applyEuler(valveGroup.rotation);
+                            tempVec.add(valveGroup.position);
+                            tempVec.project(camera);
+
+                            if (tempVec.z < 1 && showLabels) { 
+                                const x = (tempVec.x * widthHalf) + widthHalf;
+                                const y = -(tempVec.y * heightHalf) + heightHalf;
+                                item.div.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+                                item.div.style.opacity = '1';
+                            } else {
+                                item.div.style.opacity = '0';
+                            }
+                        });
+                    }
+                };
+                animate();
+
+                const handleResize = () => {
+                    if (!mountRef.current) return;
+                    camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+                };
+
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    domElement.removeEventListener('mousedown', onMouseDown);
+                    domElement.removeEventListener('touchstart', onMouseDown);
+                    domElement.removeEventListener('mousemove', onMouseMove);
+                    domElement.removeEventListener('touchmove', onMouseMove);
+                    domElement.removeEventListener('mouseup', onMouseUp);
+                    domElement.removeEventListener('touchend', onMouseUp);
+                    domElement.removeEventListener('mouseleave', onMouseUp);
+                    cancelAnimationFrame(animationId);
+                    if (mountRef.current && renderer.domElement) {
+                        mountRef.current.removeChild(renderer.domElement);
+                    }
+                    if (labelsRef.current) {
+                        labelsRef.current.innerHTML = ''; 
+                    }
+                    scene.clear();
+                };
+            }, [showLabels]);
+
+            return (
+                <div ref={mountRef} className="w-full h-[400px] md:h-[600px] cursor-grab active:cursor-grabbing bg-radial-gradient from-white to-slate-100 relative overflow-hidden">
+                    <div ref={labelsRef} className="absolute inset-0 pointer-events-none z-10"></div>
+                    <div className="absolute bottom-4 left-4 z-20 flex gap-2">
+                        <div className="bg-white/90 backdrop-blur p-2 rounded-lg text-xs font-mono text-slate-500 flex items-center gap-2 shadow-sm border border-slate-200">
+                            <MousePointer2 className="w-4 h-4" /> Drag to Rotate
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App Component ---
+        const App = () => {
+            const [isMenuOpen, setIsMenuOpen] = useState(false);
+            const [showLabels, setShowLabels] = useState(false);
+            const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+            const [formStatus, setFormStatus] = useState('idle');
+
+            const scrollTo = (id) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                }
+                setIsMenuOpen(false);
+            };
+
+            const handlePreorder = (e) => {
+                e.preventDefault();
+                setFormStatus('submitting');
+                setTimeout(() => {
+                    setFormStatus('success');
+                    setFormData({ name: '', email: '', phone: '' });
+                }, 1500);
+            };
+
+            return (
+                <div className="font-sans text-slate-800 bg-slate-50 min-h-screen">
+                
+                {/* Navigation */}
+                <nav className="fixed w-full bg-white/90 backdrop-blur-md shadow-sm z-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center space-x-2">
+                        <Shield className="h-8 w-8 text-blue-600" />
+                        <span className="text-xl font-bold bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text text-transparent">
+                            CylinderGuard
+                        </span>
+                        </div>
+                        
+                        <div className="hidden md:flex space-x-8">
+                        <button onClick={() => scrollTo('product')} className="text-slate-600 hover:text-blue-600 font-medium">Product</button>
+                        <button onClick={() => scrollTo('features')} className="text-slate-600 hover:text-blue-600 font-medium">Features</button>
+                        <button onClick={() => scrollTo('specs')} className="text-slate-600 hover:text-blue-600 font-medium">Alerts</button>
+                        <button onClick={() => scrollTo('preorder')} className="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 transition font-medium">
+                            Preorder
+                        </button>
+                        </div>
+
+                        <div className="md:hidden">
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-slate-600">
+                            {isMenuOpen ? <X /> : <Menu />}
+                        </button>
+                        </div>
+                    </div>
+                    </div>
+
+                    {isMenuOpen && (
+                    <div className="md:hidden bg-white border-t p-4 space-y-4 shadow-lg">
+                        <button onClick={() => scrollTo('product')} className="block w-full text-left py-2 font-medium text-slate-700">Product</button>
+                        <button onClick={() => scrollTo('features')} className="block w-full text-left py-2 font-medium text-slate-700">Features</button>
+                        <button onClick={() => scrollTo('specs')} className="block w-full text-left py-2 font-medium text-slate-700">Alerts</button>
+                        <button onClick={() => scrollTo('preorder')} className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-bold">Preorder Now</button>
+                    </div>
+                    )}
+                </nav>
+
+                {/* Hero Section */}
+                <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-6">
+                        <div className="inline-block px-4 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                        New: Smart Cylinder Safety
+                        </div>
+                        <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight">
+                        Total Safety for Your <span className="text-blue-600">Kitchen</span>
+                        </h1>
+                        <p className="text-lg text-slate-600">
+                        The world's most advanced smart valve. Instantly detects leaks, sends Wi-Fi alerts, and automatically cuts power to prevent disasters.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                        <button onClick={() => scrollTo('preorder')} className="bg-red-600 text-white px-8 py-4 rounded-lg text-lg font-bold shadow-lg hover:bg-red-700 transition flex items-center justify-center gap-2">
+                            <Lock className="w-5 h-5" /> Secure Yours
+                        </button>
+                        <button onClick={() => scrollTo('product')} className="bg-white text-slate-700 border border-slate-300 px-8 py-4 rounded-lg text-lg font-bold hover:bg-slate-50 transition">
+                            View 3D Model
+                        </button>
+                        </div>
+                    </div>
+                    
+                    <div className="relative">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+                        <div className="absolute -bottom-8 left-0 w-64 h-64 bg-red-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+                        <img 
+                        src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=2070" 
+                        alt="Safe Kitchen" 
+                        className="rounded-2xl shadow-2xl relative z-10 border-4 border-white"
+                        />
+                        <div className="absolute -bottom-6 -right-6 bg-white p-4 rounded-xl shadow-xl z-20 flex items-center gap-3">
+                            <div className="bg-green-100 p-2 rounded-full">
+                                <CheckCircle2 className="text-green-600 w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Status</p>
+                                <p className="font-bold text-slate-800">Leak Proof</p>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </section>
+
+                {/* Problem & Solution */}
+                <section id="product" className="py-20 bg-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="grid md:grid-cols-2 gap-16 items-center">
+                        
+                        <div className="order-2 md:order-1 bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-inner relative group">
+                            <div className="absolute top-4 right-4 z-20">
+                                <button 
+                                    onClick={() => setShowLabels(!showLabels)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-all ${showLabels ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    <Tag className="w-4 h-4" />
+                                    {showLabels ? 'Hide Labels' : 'Show Labels'}
+                                </button>
+                            </div>
+                            
+                            <Valve3D showLabels={showLabels} />
+                        </div>
+
+                        <div className="order-1 md:order-2 space-y-8">
+                        <div>
+                            <h2 className="text-3xl font-bold text-slate-900 mb-6">Why CylinderGuard?</h2>
+                            
+                            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-lg mb-6">
+                            <h3 className="text-red-800 font-bold text-lg mb-2 flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5" /> The Problem
+                            </h3>
+                            <p className="text-red-700">
+                                Gas leaks from cylinders are silent killers, causing fires, explosions, and serious health hazards. Manual detection is often too late.
+                            </p>
+                            </div>
+
+                            <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-r-lg">
+                            <h3 className="text-green-800 font-bold text-lg mb-2 flex items-center gap-2">
+                                <Shield className="w-5 h-5" /> Our Solution
+                            </h3>
+                            <ul className="space-y-2 text-green-800">
+                                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Prevents gas leaks automatically</li>
+                                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Sends instant Wi-Fi alerts to phone</li>
+                                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Cuts off electricity to prevent sparks</li>
+                                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Triggers loud siren alarm</li>
+                            </ul>
+                            </div>
+                        </div>
+                        </div>
+
+                    </div>
+                    </div>
+                </section>
+
+                {/* Key Components Grid */}
+                <section id="features" className="py-20 bg-slate-900 text-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-4">Engineering Excellence</h2>
+                        <p className="text-slate-400">Powered by four core modules working in perfect sync.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition group text-center">
+                        <div className="w-16 h-16 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 transition">
+                            <Thermometer className="w-8 h-8 text-blue-400 group-hover:text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Leak Sensor</h3>
+                        <p className="text-slate-400 text-sm">High-sensitivity detection for even minor gas accumulation.</p>
+                        </div>
+
+                        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition group text-center">
+                        <div className="w-16 h-16 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 transition">
+                            <Cpu className="w-8 h-8 text-blue-400 group-hover:text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Control Unit</h3>
+                        <p className="text-slate-400 text-sm">The brain of the system, processing data in milliseconds.</p>
+                        </div>
+
+                        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition group text-center">
+                        <div className="w-16 h-16 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 transition">
+                            <Wifi className="w-8 h-8 text-blue-400 group-hover:text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Wi-Fi Module</h3>
+                        <p className="text-slate-400 text-sm">Connects to your home network for real-time app notifications.</p>
+                        </div>
+
+                        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition group text-center">
+                        <div className="w-16 h-16 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 transition">
+                            <Zap className="w-8 h-8 text-blue-400 group-hover:text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Shut-Off Valve</h3>
+                        <p className="text-slate-400 text-sm">Industrial grade mechanics to physically stop gas flow.</p>
+                        </div>
+                    </div>
+                    </div>
+                </section>
+
+                {/* Alert Levels & Logic */}
+                <section id="specs" className="py-20 bg-slate-50">
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <h2 className="text-3xl font-bold text-center mb-12">Intelligent Alert System</h2>
+                        
+                        <div className="grid gap-6">
+                            <div className="bg-white p-6 rounded-xl shadow-sm border-l-8 border-yellow-400 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-yellow-100 p-3 rounded-full">
+                                        <Activity className="w-6 h-6 text-yellow-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-800">Low Danger Level</h3>
+                                        <p className="text-slate-500">Status: Minor Leak Detected</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-100 px-4 py-2 rounded-lg flex items-center gap-2">
+                                    <Smartphone className="w-4 h-4 text-slate-600" />
+                                    <span className="font-semibold text-sm">Wi-Fi Alert Sent</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-xl shadow-sm border-l-8 border-orange-500 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-orange-100 p-3 rounded-full">
+                                        <Zap className="w-6 h-6 text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-800">Medium Danger Level</h3>
+                                        <p className="text-slate-500">Status: Moderate Leak Detected</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-100 px-4 py-2 rounded-lg flex items-center gap-2">
+                                    <Zap className="w-4 h-4 text-slate-600" />
+                                    <span className="font-semibold text-sm">Electricity Cutoff</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-xl shadow-sm border-l-8 border-red-600 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-red-100 p-3 rounded-full">
+                                        <Bell className="w-6 h-6 text-red-600 animate-bounce" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-800">High Danger Level</h3>
+                                        <p className="text-slate-500">Status: Severe Leak Detected</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-100 px-4 py-2 rounded-lg flex items-center gap-2">
+                                    <Bell className="w-4 h-4 text-slate-600" />
+                                    <span className="font-semibold text-sm">Siren Alarm Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Preorder & Contact */}
+                <section id="preorder" className="py-20 bg-white">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="bg-blue-600 rounded-3xl p-1 md:p-12 overflow-hidden relative shadow-2xl">
+                            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-500 rounded-full blur-3xl opacity-50"></div>
+                            
+                            <div className="bg-white rounded-2xl p-8 md:p-10 relative z-10">
+                                <div className="text-center mb-8">
+                                    <h2 className="text-3xl font-bold text-slate-900 mb-2">Preorder CylinderGuard</h2>
+                                    <p className="text-slate-500">Limited early bird pricing available now.</p>
+                                    <div className="mt-4 flex items-center justify-center gap-4">
+                                        <span className="text-4xl font-bold text-blue-600">₹1,299</span>
+                                        <span className="text-lg text-slate-400 line-through">₹2,499</span>
+                                        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded">50% OFF</span>
+                                    </div>
+                                </div>
+
+                                {formStatus === 'success' ? (
+                                    <div className="text-center py-12">
+                                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                            <CheckCircle2 className="w-10 h-10 text-green-600" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Order Received!</h3>
+                                        <p className="text-slate-600">We will contact you shortly for shipping details.</p>
+                                        <button onClick={() => setFormStatus('idle')} className="mt-6 text-blue-600 font-semibold hover:underline">
+                                            Place another order
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handlePreorder} className="space-y-4">
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-semibold text-slate-700">Full Name</label>
+                                                <input 
+                                                    required
+                                                    type="text" 
+                                                    className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                                    placeholder="John Doe"
+                                                    value={formData.name}
+                                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-semibold text-slate-700">Phone Number</label>
+                                                <input 
+                                                    required
+                                                    type="tel" 
+                                                    className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                                    placeholder="+91 98765 43210"
+                                                    value={formData.phone}
+                                                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-700">Email Address</label>
+                                            <input 
+                                                required
+                                                type="email" 
+                                                className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                                placeholder="john@example.com"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                            />
+                                        </div>
+                                        
+                                        <div className="pt-4">
+                                            <button 
+                                                disabled={formStatus === 'submitting'}
+                                                type="submit" 
+                                                className="w-full bg-slate-900 text-white py-4 rounded-lg font-bold text-lg hover:bg-slate-800 transition shadow-lg flex items-center justify-center gap-2"
+                                            >
+                                                {formStatus === 'submitting' ? 'Processing...' : 'Place Order - Pay on Delivery'}
+                                            </button>
+                                            <p className="text-center text-xs text-slate-400 mt-4 flex items-center justify-center gap-1">
+                                                <Lock className="w-3 h-3" /> Secure SSL Encryption. No payment needed today.
+                                            </p>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="mt-16 text-center border-t border-slate-200 pt-8">
+                            <h4 className="font-bold text-slate-900 mb-2">Have questions?</h4>
+                            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 text-slate-600">
+                                <span className="flex items-center gap-2"><Smartphone className="w-4 h-4" /> +91 1800-SAFE-GAS</span>
+                                <span className="flex items-center gap-2"><Menu className="w-4 h-4" /> support@cylinderguard.com</span>
+                                <span className="flex items-center gap-2"><Shield className="w-4 h-4" /> 1 Year Warranty Included</span>
+                            </div>
+                            <p className="text-slate-400 text-sm mt-8">© 2026 CylinderGuard. Design Thinking Project.</p>
+                        </div>
+                    </div>
+                </section>
+
+                </div>
+            );
+        }
+
+        try {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
+        } catch(e) {
+            document.getElementById('root').innerHTML = `<div style="padding: 20px; color: red;">Error rendering React app: ${e.message}</div>`;
+            console.error(e);
+        }
+    </script>
+</body>
+</html>
